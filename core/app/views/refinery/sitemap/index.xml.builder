@@ -4,19 +4,19 @@ xml.urlset "xmlns" => "http://www.sitemaps.org/schemas/sitemap/0.9" do
   @locales.each do |locale|
     ::I18n.locale = locale
 
-    ::Refinery::Page.live.in_menu.each do |page|
-      
+    ::Refinery::Page.live.each do |page|
+
       # exclude sites that are external to our own domain.
       if page.url.is_a?(Hash)
-        
+
         # This is how most pages work without being overriden by link_url
         page_url = page.url.merge({:only_path => false, locale: locale})
-      
+
       elsif page.url.to_s !~ /^http/
-        
+
         # handle relative link_url addresses.
         raw_url = [request.protocol, request.host_with_port, page.url].join
-        
+
         if (@locales.size > 1) && !page.url.start_with?("/#{locale}/") && defined?(RoutingFilter::RefineryLocales)
           filter = RoutingFilter::RefineryLocales.new
           filter.around_generate({}) do
@@ -35,5 +35,29 @@ xml.urlset "xmlns" => "http://www.sitemaps.org/schemas/sitemap/0.9" do
         xml.lastmod page.updated_at.to_date
       end if page_url.present?
     end
+
+
+    # Here starts refinerycms-blog stuff
+    # posts index
+    last_post = ::Refinery::Blog::Post.recent(1).first
+
+    xml.url do
+      xml.loc refinery.blog_root_url
+      xml.lastmod(last_post.updated_at.to_date) unless last_post.nil?
+      xml.priority '1'
+    end
+
+    # posts
+    ::Refinery::Blog::Post.where(draft: false).each do |post|
+      post_url = refinery.blog_post_url(post)
+
+      xml.url do
+        xml.loc post_url
+        xml.lastmod post.updated_at.to_date
+        xml.priority '1'
+      end
+    end
+
+
   end
 end
